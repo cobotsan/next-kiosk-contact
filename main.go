@@ -134,13 +134,36 @@ func main() {
 		log.Println("Test mail sent successfully")
 	}
 
-	http.HandleFunc("/api/contact", contactHandler)
+	http.Handle("/api/contact", corsMiddleware(http.HandlerFunc(contactHandler)))
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 	fmt.Println("Server running on port", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow requests from your frontend domain
+		origin := r.Header.Get("Origin")
+		if origin == "http://localhost:3000" ||
+			origin == "https://next-kiosk.com" ||
+			origin == "https://next-kiosk.netlify.app" ||
+			origin == "http://next-kiosk.netlify.app" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func sendTestMail() error {
